@@ -14,7 +14,7 @@ on:
 jobs:
   perform-setup:
       runs-on: ubuntu-latest
-      environment: agentforce
+      #environment: agentforce
       steps:
           - name: Ensure node v20.9.0 or greater
             uses: actions/setup-node@v4
