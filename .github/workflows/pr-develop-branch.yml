@@ -1,15 +1,13 @@
 # Unique name for this workflow
 name: Validate PR on develop branch
 
-# Definition when the workflow should run
+# Definition of when the workflow should run
 on:
-    # The workflow will run whenever an event happens on a pull request
-    pull_request:
-      types: [opened, synchronize]
-      branches: [ develop ]
-      paths:
-        - 'force-app/**'
-            
+  pull_request:
+    types: [opened, synchronize]
+    branches: [develop]
+    paths:
+      - "force-app/**"
 
 jobs:
     perform-setup:
