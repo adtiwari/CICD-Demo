@@ -1,15 +1,13 @@
 # Unique name for this workflow
 name: Validate PR on develop branch
 
-# Definition when the workflow should run
+# Definition of when the workflow should run
 on:
-    # The workflow will run whenever an event happens on a pull request
-    pull_request:
-      types: [opened, synchronize]
-      branches: [ develop ]
-      paths:
-        - 'force-app/**'
-            
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+    paths:
+      - "force-app/**"
 
 jobs:
     perform-setup:
@@ -29,12 +27,11 @@ jobs:
               uses: actions/setup-python@v5
               with:
                 python-version: '>=3.10'
+            - name: install sfdx
+              run: npm install @salesforce/cli --global
             - name: Install Latest Salesforce Code Analyzer CLI Plugin
               run: sf plugins install code-analyzer@latest
-            - name: 'Installing sfdx git delta'
-              run: |
-                  echo Y | sf plugins:install sfdx-git-delta
-                  sf plugins
+              
             - name: 'Create delta packages'
               run: | 
                   mkdir changed-sources
