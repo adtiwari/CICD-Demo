@@ -12,39 +12,42 @@ on:
             
 
 jobs:
-  perform-setup:
-      runs-on: ubuntu-latest
-      environment: agentforce
-          steps:
-          - name: Ensure node v20.9.0 or greater
-            uses: actions/setup-node@v4
-            with:
-              node-version: '>=20.9.0'
-          - name: Ensure java v11 or greater
-            uses: actions/setup-java@v4
-            with:
-              java-version: '>=11'
-              distribution: 'zulu'
-          - name: Ensure python v3.10 or greater
-            uses: actions/setup-python@v5
-            with:
-              python-version: '>=3.10'
-          - name: Install Latest Salesforce Code Analyzer CLI Plugin
-            run: sf plugins install code-analyzer@latest
-            
-          - name: 'Create delta packages'
-            run: | 
-                mkdir changed-sources
-                sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
-                echo "[INFO] Diff generated"
-          - name: 'Run Scanner'
-            run: |
-                cd changed-sources
-                sf code-analyzer run --rule-selector Recommended --workspace . --view table --config-file code-analyzer.yml
-                cd ..
-                
-          - name: 'Deploy to environment with running all local tests'
-            run: |
-                echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
-                sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests
+    perform-setup:
+        runs-on: ubuntu-latest
+        environment: agentforce
+        steps:
+            - name: Ensure node v20.9.0 or greater
+              uses: actions/setup-node@v4
+              with:
+                node-version: '>=20.9.0'
+            - name: Ensure java v11 or greater
+              uses: actions/setup-java@v4
+              with:
+                java-version: '>=11'
+                distribution: 'zulu'
+            - name: Ensure python v3.10 or greater
+              uses: actions/setup-python@v5
+              with:
+                python-version: '>=3.10'
+            - name: Install Latest Salesforce Code Analyzer CLI Plugin
+              run: sf plugins install code-analyzer@latest
+            - name: 'Installing sfdx git delta'
+              run: |
+                  echo Y | sf plugins:install sfdx-git-delta
+                  sf plugins
+            - name: 'Create delta packages'
+              run: | 
+                  mkdir changed-sources
+                  sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
+                  echo "[INFO] Diff generated"
+            - name: 'Run Scanner'
+              run: |
+                  cd changed-sources
+                  sf code-analyzer run --rule-selector Recommended --workspace . --view table --config-file code-analyzer.yml
+                  cd ..
+                  
+            - name: 'Deploy to environment with running all local tests'
+              run: |
+                  echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
+                  sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
+                  sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests
