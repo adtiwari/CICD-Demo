@@ -18,6 +18,10 @@ jobs:
               uses: actions/setup-node@v4
               with:
                 node-version: '>=20.9.0'
+            = name: install checkout
+              uses: actions/checkout@v3
+              with:
+                fetch-depth: '2'
             - name: Ensure java v11 or greater
               uses: actions/setup-java@v4
               with:
@@ -38,7 +42,7 @@ jobs:
             - name: 'Create delta packages'
               run: | 
                   mkdir changed-sources
-                  sf sgd source delta --to "HEAD" --from "origin/${{ github.base_ref }}" --output changed-sources/ --generate-delta --source force-app/
+                  sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
                   echo "[INFO] Diff generated"
             - name: 'Run Scanner'
               run: |
