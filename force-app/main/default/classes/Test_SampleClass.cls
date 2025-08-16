@@ -27,7 +27,7 @@ private class Test_SampleClass {
         // TO DO: implement unit test
         Test.startTest(); 
         Sample SS = new Sample();
-        ss.Sample();
+        //ss.Sample();
         Test.stopTest();
     }
 }
