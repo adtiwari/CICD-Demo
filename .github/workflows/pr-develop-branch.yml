@@ -38,7 +38,7 @@ jobs:
             - name: 'Create delta packages'
               run: | 
                   mkdir changed-sources
-                  sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
+                  sf sgd source delta --to "HEAD" --from "origin/${{ github.base_ref }}" --output changed-sources/ --generate-delta --source force-app/
                   echo "[INFO] Diff generated"
             - name: 'Run Scanner'
               run: |
