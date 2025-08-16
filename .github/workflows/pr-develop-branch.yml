@@ -47,7 +47,7 @@ jobs:
             - name: 'Run Scanner'
               run: |
                   cd changed-sources
-                  sf code-analyzer run --rule-selector Recommended --workspace . --view table --config-file code-analyzer.yml
+                  sf code-analyzer run --rule-selector Recommended --workspace . --view table --config-file ../code-analyzer.yml
                   cd ..
                   
             - name: 'Deploy to environment with running all local tests'
