@@ -25,7 +25,7 @@ private class Test_SampleClass {
     @isTest
     static void myUnitTest() {
         // TO DO: implement unit test
-        Test.startTest();
+        Test.startTest(); 
         Sample SS = new Sample();
         ss.Sample();
         Test.stopTest();
