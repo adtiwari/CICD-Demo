@@ -4,10 +4,16 @@ name: Validate PR on develop branch
 # Definition of when the workflow should run
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, reopened, synchronize, ready_for_review]
     branches: [main]
     paths:
       - "force-app/**"
+permissions:
+  contents: read
+  pull-requests: write   # needed to comment on the PR
+concurrency:
+  group: pr-validate-classes-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
     perform-setup:
@@ -44,13 +50,70 @@ jobs:
                   mkdir changed-sources
                   sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
                   echo "[INFO] Diff generated"
+            - name: Compute base/head SHAs
+              id: shas
+              run: |
+                echo "base_ref=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
+                echo "head_ref=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
+            - name: Detect changed Apex classes
+              id: classcheck
+              run: |
+                CHANGED=$(git diff --name-only "${{ steps.shas.outputs.base_ref }}" "${{ steps.shas.outputs.head_ref }}" -- 'force-app/main/default/classes/**' || true)
+                if [ -z "$CHANGED" ]; then
+                  echo "has_class_changes=false" >> $GITHUB_OUTPUT
+                  echo "No Apex class changes detected."
+                else
+                  echo "has_class_changes=true" >> $GITHUB_OUTPUT
+                  echo "Changed Apex class files:"
+                  echo "$CHANGED"
+                fi
+            - name: Detect changed Aura components
+              id: auracheck
+              run: |
+                CHANGED=$(git diff --name-only "${{ steps.shas.outputs.base_ref }}" "${{ steps.shas.outputs.head_ref }}" -- 'force-app/main/default/aura/**' || true)
+                if [ -z "$CHANGED" ]; then
+                  echo "has_aura_changes=false" >> $GITHUB_OUTPUT
+                  echo "No Aura changes detected."
+                else
+                  echo "has_aura_changes=true" >> $GITHUB_OUTPUT
+                  echo "Changed Aura files:"
+                  echo "$CHANGED"
+                fi                
+            - name: Detect changed LWC
+              id: lwccheck
+              run: |
+                CHANGED=$(git diff --name-only "${{ steps.shas.outputs.base_ref }}" "${{ steps.shas.outputs.head_ref }}" -- 'force-app/main/default/lwc/**' || true)
+                if [ -z "$CHANGED" ]; then
+                  echo "has_lwc_changes=false" >> $GITHUB_OUTPUT
+                  echo "No LWC changes detected."
+                else
+                  echo "has_lwc_changes=true" >> $GITHUB_OUTPUT
+                  echo "Changed LWC files:"
+                  echo "$CHANGED"
+                fi
             - name: 'Run Scanner'
+              id: runscan
+              if: ${{ steps.classcheck.outputs.has_class_changes == 'true' || steps.auracheck.outputs.has_aura_changes == 'true'||steps.lwccheck.outputs.has_lwc_changes == 'true' }}
               run: |
                   cd changed-sources
-                  sf code-analyzer run --rule-selector Recommended --workspace . --view table --config-file ../code-analyzer.yml
+                  sf code-analyzer run --rule-selector Recommended --workspace . --view table --config-file ../code-analyzer.yml | tee scan-output.txt
+                  SCAN_RESULTS=$(cat scan-output.txt | wc -l)
+                  echo "data_rows=$SCAN_RESULTS" >> $GITHUB_OUTPUT
+                  if [ "$SCAN_RESULTS" -gt 2 ]; then
+                    echo "has_findings=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "has_findings=false" >> $GITHUB_OUTPUT
+                  fi
                   cd ..
-                  
+            - name: Comment scan results on PR
+              if: steps.runscan.outputs.has_findings == 'true'
+              uses: peter-evans/create-or-update-comment@v4
+              with:
+                issue-number: ${{ github.event.pull_request.number }}
+                body-file: scan-output.txt
+
             - name: 'Deploy to environment with running all local tests'
+              if: steps.runscan.outputs.has_findings == 'false'
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
