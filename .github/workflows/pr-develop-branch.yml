@@ -198,12 +198,9 @@ jobs:
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                  if ["$default_level" == "NoTestRun"]; then
+                  if [ "$default_level" == "NoTestRun" ]; then
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level"
-                  else
-                    echo "default not executed"
-                  fi
-                  if ["$test_level" == "RunLocalTests"]; then
+                  elif [ "$test_level" == "RunLocalTests" ]; then
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$test_level"
                   else
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level" --tests "$tests"
