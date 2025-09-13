@@ -191,13 +191,17 @@ jobs:
                   echo "test-level=NoTestRun">> $GITHUB_OUTPUT
             - name: 'Deploy to environment with running proper tests'
               id: deploy
+              env: 
+                test_level : ${{steps.testsuite.test-level}}
+                default_level : ${{steps.defaultsuite.test-level}}
+                tests : ${{steps.testsuite.tests}}              
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
                   set -x
-                  if [ "${{steps.defaultsuite.test-level}}" == "NoTestRun" ]; then
+                  if [[ "$default_level" == "NoTestRun" ]]; then
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level"
-                  elif [ "${{steps.testsuite.test-level}}" == "RunLocalTests" ]; then
+                  elif [[ "$test_level" == "RunLocalTests" ]]; then
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$test_level"
                   else
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$test_level" --tests "$tests"
