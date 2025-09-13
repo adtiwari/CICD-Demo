@@ -207,8 +207,6 @@ jobs:
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$test_level"
                   else
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level" --tests "$tests"
-                  else
-                    echo "shit hit the fan"
                   fi
             - name: package xml on PR
               if: ${{steps.runscan.outputs.has_findings == 'true'}}
