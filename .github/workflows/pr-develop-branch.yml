@@ -50,6 +50,8 @@ jobs:
                   mkdir changed-sources
                   sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
                   echo "[INFO] Diff generated"
+                  cd changed-sources
+                  ls -ltrR
             - name: Compute base/head SHAs
               id: shas
               run: |
