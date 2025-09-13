@@ -197,9 +197,11 @@ jobs:
                 tests : ${{steps.testsuite.tests}}
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
-                  echo $default_level
-                  echo $test_level
+                  echo ${{default_level}}
+                  echo ${{test_level}}
+                  
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
+                  set -x
                   if [ "$default_level" == "NoTestRun" ]; then
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level"
                   elif [ "$test_level" == "RunLocalTests" ]; then
@@ -207,6 +209,7 @@ jobs:
                   else
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level" --tests "$tests"
                   fi
+                  set +x
             - name: package xml on PR
               if: ${{steps.runscan.outputs.has_findings == 'true'}}
               uses: peter-evans/create-or-update-comment@v4
