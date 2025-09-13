@@ -155,6 +155,7 @@ jobs:
               run: |
                   echo "has_findings=false" >> $GITHUB_OUTPUT
                   cd changed-sources
+                  ls -ltRr
                   sf code-analyzer run --rule-selector Recommended --workspace . --view table --config-file ../code-analyzer.yml | tee scan-output.txt
                   SCAN_RESULTS=$(cat scan-output.txt | wc -l)
                   echo "data_rows=$SCAN_RESULTS" >> $GITHUB_OUTPUT
