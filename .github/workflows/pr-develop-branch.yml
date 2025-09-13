@@ -197,7 +197,8 @@ jobs:
                 tests : ${{steps.testsuite.tests}}              
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
-                  echo "$default_level"
+                  echo "${{steps.defaultsuite.test-level}}"
+                  echo "default Done"
                   echo "$tests"
                   echo "$test_level"
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
