@@ -186,7 +186,7 @@ jobs:
                   fi
             - name: No Tests to Run
               id: defaultsuite
-              if: ${{ !steps.classcheck.outputs.has_class_changes && !steps.triggercheck.outputs.has_triggers_changes  }}
+              if: ${{ steps.classcheck.outputs.has_class_changes == false && steps.triggercheck.outputs.has_triggers_changes == false }}
               run: |
                   echo "test-level=NoTestRun">> $GITHUB_OUTPUT
             - name: 'Deploy to environment with running proper tests'
