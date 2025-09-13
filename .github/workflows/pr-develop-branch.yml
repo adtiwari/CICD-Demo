@@ -203,4 +203,4 @@ jobs:
               uses: peter-evans/create-or-update-comment@v4
               with:
                 issue-number: ${{ github.event.pull_request.number }}
-                body-file: changed-sources/package.xml
+                body-file: changed-sources/manifest/package.xml
