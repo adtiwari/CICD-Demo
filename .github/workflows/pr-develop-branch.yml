@@ -199,12 +199,12 @@ jobs:
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
                   set -x
-                  if [ "$default_level" == "NoTestRun" ]; then
+                  if [ "${{steps.defaultsuite.test-level}}" == "NoTestRun" ]; then
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level"
-                  elif [ "$test_level" == "RunLocalTests" ]; then
+                  elif [ "${{steps.testsuite.test-level}}" == "RunLocalTests" ]; then
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$test_level"
                   else
-                    sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level" --tests "$tests"
+                    sf project deploy start --source-dir changed-sources/force-app --test-level "$test_level" --tests "$tests"
                   fi
                   set +x
             - name: package xml on PR
