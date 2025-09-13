@@ -55,6 +55,10 @@ jobs:
               run: |
                 echo "base_ref=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
                 echo "head_ref=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
+            - name : Initialize Check variable
+              id: init
+              run: |
+                echo "run_scanner=false" >>$GITHUB_OUTPUT
             - name: Detect changed Apex classes
               id: classcheck
               run: |
@@ -91,10 +95,65 @@ jobs:
                   echo "Changed LWC files:"
                   echo "$CHANGED"
                 fi
+            - name: Detect changed VF
+              id: VFcheck
+              run: |
+                CHANGED=$(git diff --name-only "${{ steps.shas.outputs.base_ref }}" "${{ steps.shas.outputs.head_ref }}" -- 'force-app/main/default/pages/**' || true)
+                if [ -z "$CHANGED" ]; then
+                  echo "has_vf_changes=false" >> $GITHUB_OUTPUT
+                  echo "No VF changes detected."
+                else
+                  echo "has_vf_changes=true" >> $GITHUB_OUTPUT
+                  echo "Changed VF files:"
+                  echo "$CHANGED"
+                fi
+            - name: Detect changed VFC
+              id: vfccheck
+              run: |
+                CHANGED=$(git diff --name-only "${{ steps.shas.outputs.base_ref }}" "${{ steps.shas.outputs.head_ref }}" -- 'force-app/main/default/components/**' || true)
+                if [ -z "$CHANGED" ]; then
+                  echo "has_vfc_changes=false" >> $GITHUB_OUTPUT
+                  echo "No VFC changes detected."
+                else
+                  echo "has_vfc_changes=true" >> $GITHUB_OUTPUT
+                  echo "Changed VFC files:"
+                  echo "$CHANGED"
+                fi
+            - name: Detect changed trigger
+              id: triggercheck
+              run: |
+                CHANGED=$(git diff --name-only "${{ steps.shas.outputs.base_ref }}" "${{ steps.shas.outputs.head_ref }}" -- 'force-app/main/default/triggers/**' || true)
+                if [ -z "$CHANGED" ]; then
+                  echo "has_triggers_changes=false" >> $GITHUB_OUTPUT
+                  echo "No Triggers changes detected."
+                else
+                  echo "has_triggers_changes=true" >> $GITHUB_OUTPUT
+                  echo "Changed Triggers files:"
+                  echo "$CHANGED"
+                fi
+            - name: Detect changed Flows
+              id: flowscheck
+              run: |
+                CHANGED=$(git diff --name-only "${{ steps.shas.outputs.base_ref }}" "${{ steps.shas.outputs.head_ref }}" -- 'force-app/main/default/flows/**' || true)
+                if [ -z "$CHANGED" ]; then
+                  echo "has_flows_changes=false" >> $GITHUB_OUTPUT
+                  echo "No Flows changes detected."
+                else
+                  echo "has_flows_changes=true" >> $GITHUB_OUTPUT
+                  echo "Changed Flows files:"
+                  echo "$CHANGED"
+                fi
+            - name: 'Evaluate if Scanner is needed'
+              id: prescanevaluate
+              if: ${{ steps.classcheck.outputs.has_class_changes == 'true' || steps.auracheck.outputs.has_aura_changes == 'true'||steps.lwccheck.outputs.has_lwc_changes == 'true' ||steps.VFcheck.outputs.has_vf_changes == 'true' ||steps.vfccheck.outputs.has_vfc_changes == 'true' ||steps.triggercheck.outputs.has_triggers_changes == 'true' ||steps.flowscheck.outputs.has_flows_changes == 'true' }}
+              run: |
+                echo "run_scanner=true" >>$GITHUB_OUTPUT
+            
             - name: 'Run Scanner'
               id: runscan
-              if: ${{ steps.classcheck.outputs.has_class_changes == 'true' || steps.auracheck.outputs.has_aura_changes == 'true'||steps.lwccheck.outputs.has_lwc_changes == 'true' }}
+              if:  ${{ steps.prescanevaluate.outputs.run_scanner == 'true'}}
               run: |
+                  echo "has_findings=false" >> $GITHUB_OUTPUT
                   cd changed-sources
                   sf code-analyzer run --rule-selector Recommended --workspace . --view table --config-file ../code-analyzer.yml | tee scan-output.txt
                   SCAN_RESULTS=$(cat scan-output.txt | wc -l)
@@ -106,15 +165,54 @@ jobs:
                   fi
                   cd ..
             - name: Comment scan results on PR
-              if: steps.runscan.outputs.has_findings == 'true'
+              if: ${{steps.runscan.outputs.has_findings == 'true'}}
               uses: peter-evans/create-or-update-comment@v4
               with:
                 issue-number: ${{ github.event.pull_request.number }}
-                body-file: scan-output.txt
-
-            - name: 'Deploy to environment with running all local tests'
-              if: steps.runscan.outputs.has_findings == 'false'
+                body-file: changed-sources/scan-output.txt
+            - name: Tests to Run
+              id: testsuite
+              if: ${{steps.classcheck.outputs.has_class_changes||steps.triggercheck.outputs.has_triggers_changes == 'true' }}
+              run: |
+                  cd changed-source
+                  FOUND_FILES=$(find force-app/main/default/classes/ -type f -print0 | xargs -0 grep -l "@isTest" | paste -sd ',')
+                  if [ -n "$FOUND_FILES" ]; then
+                    echo "Files containing  $FOUND_FILES"
+                    echo "tests=$FOUND_FILES" >> $GITHUB_OUTPUT
+                    echo "test-level=RunSpecifiedTests" >>$GITHUB_OUTPUT
+                  else
+                    echo "No test files found error stop further '"
+                    echo "test-level=RunLocalTests">> $GITHUB_OUTPUT
+                  fi
+            - name: No Tests to Run
+              id: defaultsuite
+              if: ${{steps.classcheck.outputs.has_class_changes!='true'&&steps.triggercheck.outputs.has_triggers_changes != 'true' }}
+              run: |
+                  echo "test-level=NoTestRun">> $GITHUB_OUTPUT
+            - name: 'Deploy to environment with running proper tests'
+              id: deploy
+              env: 
+                test_level : ${{steps.testsuite.test-level}}
+                default_level : ${{steps.defaultsuite.test-level}}
+                tests : ${{steps.testsuite.tests}}
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                  sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests
+                  if ["$default_level" == "NoTestRun"]; then
+                    sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level"
+                  else
+                    echo "default not executed"
+                  fi
+                  if ["$test_level" == "RunLocalTests"]; then
+                    sf project deploy start --source-dir changed-sources/force-app --test-level "$test_level"
+                  else
+                    sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level" --tests "$tests"
+                  else
+                    echo "shit hit the fan"
+                  fi
+            - name: package xml on PR
+              if: ${{steps.runscan.outputs.has_findings == 'true'}}
+              uses: peter-evans/create-or-update-comment@v4
+              with:
+                issue-number: ${{ github.event.pull_request.number }}
+                body-file: changed-sources/package.xml
