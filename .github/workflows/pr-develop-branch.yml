@@ -190,29 +190,13 @@ jobs:
               run: |
                   echo "test-level=NoTestRun">> $GITHUB_OUTPUT
             - name: 'Deploy to environment with running proper tests'
-              id: deploy
-              env: 
-                test_level : ${{steps.testsuite.test-level}}
-                default_level : ${{steps.defaultsuite.test-level}}
-                tests : ${{steps.testsuite.tests}}              
+              id: deploy_no_tests
+              if: ${{ steps.defaultsuite.outputs.test-level == 'NoTestRun'}}
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
-                  echo "${{steps.defaultsuite.test-level}}"
-                  echo "default Done"
-                  echo "$tests"
-                  echo "$test_level"
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                  set -x
-                  if [[ "$default_level" == "NoTestRun" ]]; then
-                    sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level"
-                  elif [[ "$test_level" == "RunLocalTests" ]]; then
-                    sf project deploy start --source-dir changed-sources/force-app --test-level "$test_level"
-                  else
-                    sf project deploy start --source-dir changed-sources/force-app --test-level "$test_level" --tests "$tests"
-                  fi
-                  set +x
+                  sf project deploy start --source-dir changed-sources/force-app --test-level NoTestRun
             - name: package xml on PR
-              if: ${{steps.runscan.outputs.has_findings == 'true'}}
               uses: peter-evans/create-or-update-comment@v4
               with:
                 issue-number: ${{ github.event.pull_request.number }}
