@@ -197,6 +197,8 @@ jobs:
                 tests : ${{steps.testsuite.tests}}
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
+                  echo "$default_level"
+                  echo "$test_level"
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
                   if [ "$default_level" == "NoTestRun" ]; then
                     sf project deploy start --source-dir changed-sources/force-app --test-level "$default_level"
