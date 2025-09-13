@@ -191,10 +191,6 @@ jobs:
                   echo "test-level=NoTestRun">> $GITHUB_OUTPUT
             - name: 'Deploy to environment with running proper tests'
               id: deploy
-              env: 
-                test_level : ${{steps.testsuite.test-level}}
-                default_level : ${{steps.defaultsuite.test-level}}
-                tests : ${{steps.testsuite.tests}}
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
