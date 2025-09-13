@@ -174,7 +174,7 @@ jobs:
               id: testsuite
               if: ${{steps.classcheck.outputs.has_class_changes||steps.triggercheck.outputs.has_triggers_changes == 'true' }}
               run: |
-                  cd changed-source
+                  cd changed-sources
                   FOUND_FILES=$(find force-app/main/default/classes/ -type f -print0 | xargs -0 grep -l "@isTest" | paste -sd ',')
                   if [ -n "$FOUND_FILES" ]; then
                     echo "Files containing  $FOUND_FILES"
