@@ -200,6 +200,22 @@ jobs:
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
                   sf project deploy start --source-dir changed-sources/force-app --test-level NoTestRun
                   pwd
+            - name: 'Deploy to environment with running proper tests'
+              id: deploy_local_tests
+              if: ${{ steps.testsuite.outputs.test-level == 'RunLocalTests'}}
+              run: |
+                  echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
+                  sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
+                  sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests
+                  pwd
+            - name: 'Deploy to environment with running proper tests'
+              id: deploy_specific_tests
+              if: ${{ steps.defaultsuite.outputs.test-level == 'RunSpecifiedTests'}}
+              run: |
+                  echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
+                  sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
+                  sf project deploy start --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$tests"
+                  pwd                  
             - name: package xml on PR
               uses: peter-evans/create-or-update-comment@v4
               with:
