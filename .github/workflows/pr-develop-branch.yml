@@ -207,6 +207,11 @@ jobs:
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
                   sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests
+                  sf data query \
+                    --json \
+                    -q "SELECT PercentCovered FROM ApexOrgWideCoverage" | tee coverage.json
+                  PCT=$(jq -r '.result.records[0].PercentCovered' coverage.json)
+                  echo "percent=${PCT}" >> $GITHUB_OUTPUT
                   pwd
             - name: 'Deploy to environment with running proper tests'
               id: deploy_specific_tests
@@ -215,6 +220,11 @@ jobs:
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
                   sf project deploy start --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$tests"
+                  sf data query \
+                    --json \
+                    -q "SELECT PercentCovered FROM ApexOrgWideCoverage" | tee coverage.json
+                  PCT=$(jq -r '.result.records[0].PercentCovered' coverage.json)
+                  echo "percent=${PCT}" >> $GITHUB_OUTPUT
                   pwd                  
             - name: package xml on PR
               uses: peter-evans/create-or-update-comment@v4
