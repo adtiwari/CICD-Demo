@@ -15,6 +15,9 @@ concurrency:
   group: pr-validate-classes-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  COVERAGE_THRESHOLD: "85"
+  
 jobs:
     perform-setup:
         runs-on: ubuntu-latest
@@ -225,7 +228,25 @@ jobs:
                     -q "SELECT PercentCovered FROM ApexOrgWideCoverage" | tee coverage.json
                   PCT=$(jq -r '.result.records[0].PercentCovered' coverage.json)
                   echo "percent=${PCT}" >> $GITHUB_OUTPUT
-                  pwd                  
+                  pwd 
+            - name: evaluate Test Coverage 
+              id: coverage
+              if: ${{ steps.testsuite.outputs.test-level == 'RunLocalTests' || steps.defaultsuite.outputs.test-level == 'RunSpecifiedTests'}}
+              run: |
+                  sf data query \
+                    --json \
+                    -q "SELECT PercentCovered FROM ApexOrgWideCoverage" | tee coverage.json
+                  PCT=$(jq -r '.result.records[0].PercentCovered' coverage.json)
+                  echo "percent=${PCT}" >> $GITHUB_OUTPUT                
+                  if [[ ${PCT} - lt "$THRESH"]]; then
+                    echo "❌ Coverage below threshold"
+                    echo "status=fail" >> $GITHUB_OUTPUT
+                    exit 1
+                  else
+                    echo "✅ Coverage meets threshold"
+                    echo "status=pass" >> $GITHUB_OUTPUT
+                  fi
+
             - name: package xml on PR
               uses: peter-evans/create-or-update-comment@v4
               with:
