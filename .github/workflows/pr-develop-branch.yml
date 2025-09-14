@@ -192,7 +192,7 @@ jobs:
               if: ${{ steps.classcheck.outputs.has_class_changes == 'false' && steps.triggercheck.outputs.has_triggers_changes == 'false' }}
               run: |
                   echo "test-level=NoTestRun">> $GITHUB_OUTPUT
-            - name: 'Deploy to environment with running proper tests'
+            - name: 'Deploy to environment with running no tests'
               id: deploy_no_tests
               if: ${{ steps.defaultsuite.outputs.test-level == 'NoTestRun'}}
               run: |
@@ -200,7 +200,7 @@ jobs:
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
                   sf project deploy start --source-dir changed-sources/force-app --test-level NoTestRun
                   pwd
-            - name: 'Deploy to environment with running proper tests'
+            - name: 'Deploy to environment with running local tests'
               id: deploy_local_tests
               if: ${{ steps.testsuite.outputs.test-level == 'RunLocalTests'}}
               run: |
@@ -213,7 +213,7 @@ jobs:
                   PCT=$(jq -r '.result.records[0].PercentCovered' coverage.json)
                   echo "percent=${PCT}" >> $GITHUB_OUTPUT
                   pwd
-            - name: 'Deploy to environment with running proper tests'
+            - name: 'Deploy to environment with running specific tests'
               id: deploy_specific_tests
               if: ${{ steps.defaultsuite.outputs.test-level == 'RunSpecifiedTests'}}
               run: |
