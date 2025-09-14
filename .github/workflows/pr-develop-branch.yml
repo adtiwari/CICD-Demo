@@ -226,7 +226,7 @@ jobs:
               run: |
                   sf data query \
                     --json \
-                    -q "SELECT PercentCovered FROM ApexOrgWideCoverage" --tooling | tee coverage.json
+                    -q "SELECT PercentCovered FROM ApexOrgWideCoverage" --use-tooling-api | tee coverage.json
                   PCT=$(jq -r '.result.records[0].PercentCovered' coverage.json)
                   echo "percent=${PCT}" >> $GITHUB_OUTPUT                
                   if [[ ${PCT} - lt "$THRESH"]]; then
