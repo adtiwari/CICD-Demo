@@ -64,6 +64,18 @@ jobs:
               id: init
               run: |
                 echo "run_scanner=false" >>$GITHUB_OUTPUT
+            - name: Detect changed validation rules
+              id: vrulecheck
+              run: |
+                CHANGED=$(git diff --name-only "${{ steps.shas.outputs.base_ref }}" "${{ steps.shas.outputs.head_ref }}" -- 'force-app/main/default/objects/**/validationRules/**' || true)
+                if [ -z "$CHANGED" ]; then
+                  echo "has_validationrule_changes=false" >> $GITHUB_OUTPUT
+                  echo "No Validation Rule changes detected."
+                else
+                  echo "has_validationrule_changes=true" >> $GITHUB_OUTPUT
+                  echo "Changed Validation Rule files:"
+                  echo "$CHANGED"
+                fi
             - name: Detect changed Apex classes
               id: classcheck
               run: |
@@ -178,7 +190,7 @@ jobs:
                 body-file: changed-sources/scan-output.txt
             - name: Tests to Run
               id: testsuite
-              if: ${{steps.classcheck.outputs.has_class_changes||steps.triggercheck.outputs.has_triggers_changes == 'true' }}
+              if: ${{steps.classcheck.outputs.has_class_changes||steps.triggercheck.outputs.has_triggers_changes == 'true' || steps.vrulecheck.outputs.has_validationrule_changes == 'true' }}
               run: |
                   cd changed-sources
                   FOUND_FILES=$(find force-app/main/default/classes/ -type f -print0 | xargs -0 grep -l "@isTest" | paste -sd ',')
@@ -192,7 +204,7 @@ jobs:
                   fi
             - name: No Tests to Run
               id: defaultsuite
-              if: ${{ steps.classcheck.outputs.has_class_changes == 'false' && steps.triggercheck.outputs.has_triggers_changes == 'false' }}
+              if: ${{ steps.classcheck.outputs.has_class_changes == 'false' && steps.triggercheck.outputs.has_triggers_changes == 'false' && steps.vrulecheck.outputs.has_validationrule_changes == 'false' }}
               run: |
                   echo "test-level=NoTestRun">> $GITHUB_OUTPUT
             - name: 'Deploy to environment with running no tests'
@@ -205,7 +217,7 @@ jobs:
                   pwd
             - name: 'Deploy to environment with running local tests'
               id: deploy_local_tests
-              if: ${{ steps.testsuite.outputs.test-level == 'RunLocalTests'}}
+              if: ${{ steps.testsuite.outputs.test-level == 'RunLocalTests' || steps.vrulecheck.outputs.has_validationrule_changes == 'true'}}
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
