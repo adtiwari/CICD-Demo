@@ -213,7 +213,8 @@ jobs:
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                  sf project deploy start --source-dir changed-sources/force-app --test-level NoTestRun --wait 60 --json > validate.json
+                  sf project deploy validate --source-dir changed-sources/force-app --test-level NoTestRun --wait 60 --json --verbose > validate.json
+                  sf project deploy start --source-dir changed-sources/force-app --test-level NoTestRun --wait 60 --json > deploy.json
                   pwd
             - name: 'Deploy to environment with running local tests'
               id: deploy_local_tests
@@ -221,8 +222,8 @@ jobs:
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                  sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests --wait 60 --json > validate.json
-
+                  sf project deploy validate --manifest manifest/package.xml --test-level RunLocalTests --coverage-formatters json-summary --results-dir coveragetext  --verbose --wait 60 --json > validate.json
+                  sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests --wait 60 --json > > deploy.json
                   pwd
             - name: 'Deploy to environment with running specific tests'
               id: deploy_specific_tests
@@ -230,128 +231,22 @@ jobs:
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                  sf project deploy start --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$tests" --wait 60 --json > validate.json
+                  sf project deploy validate --manifest manifest/package.xml --test-level RunSpecifiedTests --tests "$tests" --coverage-formatters json-summary --results-dir coveragetext --verbose --wait 60 --json > validate.json
+                  sf project deploy start --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$tests" --wait 60 --json > > deploy.json
                   pwd 
-            - name: evaluate Test Coverage 
+            - name: compute Test Coverage 
               id: coverage
               if: ${{ steps.testsuite.outputs.test-level == 'RunLocalTests' || steps.defaultsuite.outputs.test-level == 'RunSpecifiedTests'}}
               run: |
-                  node <<'NODE'
-                  const fs = require('fs');
-        
-                  // Read validate JSON (from previous step). The CLI returns a deploy result with runTestResult/codeCoverage.
-                  if (!fs.existsSync('validate.json')) {
-                    console.error('validate.json not found');
-                    process.exit(1);
-                  }
-                  const raw = JSON.parse(fs.readFileSync('validate.json','utf8'));
-        
-                  // Try to normalize paths to run test results; sf cli structures can differ slightly by version.
-                  let runTests = null;
-                  try {
-                    // Common locations:
-                    // raw.result.details.runTestResult
-                    // raw.details.runTestResult
-                    // raw.result?.response?.details?.runTestResult (older bridges)
-                    runTests = raw?.result?.details?.runTestResult
-                           || raw?.details?.runTestResult
-                           || raw?.result?.response?.details?.runTestResult
-                           || null;
-                  } catch (e) {}
-        
-                  if (!runTests) {
-                    console.error('No runTestResult found in validate JSON. Ensure TEST_LEVEL runs tests.');
-                  }
-        
-                  const codeCov = (runTests?.codeCoverage) || [];
-                  // Each element generally has: name, numLocations, numLocationsNotCovered, locationsNotCovered[], etc.
-                  const byName = new Map();
-                  for (const r of codeCov) {
-                    const name = r.name || r.typeName || r.ApexClassOrTriggerName || null;
-                    const numLoc = Number(r.numLocations || r.NumLocations || 0);
-                    const numNot = Number(r.numLocationsNotCovered || r.NumLocationsNotCovered || 0);
-                    if (!name) continue;
-                    // prefer record with larger denominator
-                    const existing = byName.get(name);
-                    if (!existing || numLoc > (existing.numLoc || 0)) {
-                      byName.set(name, { name, numLoc, numNot });
-                    }
-                  }
-        
-                  // Thresholds
-                  const avgMin = Number(process.env.DELTA_AVG_MIN_PCT || '85');
-                  const perMin = Number(process.env.DELTA_PER_FILE_MIN_PCT || '85');
-        
-                  const rows = [];
-                  let totCovered = 0, totLines = 0;
-                  const missing = [];
-        
-                  for (const u of units) {
-                    const rec = byName.get(u);
-                    let covered = 0, total = 0, pct = 0;
-                    if (rec) {
-                      total = rec.numLoc;
-                      const not = rec.numNot;
-                      covered = Math.max(total - not, 0);
-                      pct = total > 0 ? Math.round((covered * 1000) / total) / 10 : 0;
-                      totCovered += covered;
-                      totLines += total;
-                    } else {
-                      // No coverage data for this changed unit in validate JSON (new class untested, or no tests touched it)
-                      missing.push(u);
-                    }
-                    rows.push({ name: u, covered, total, pct, found: !!rec });
-                  }
-        
-                  const avgPct = totLines > 0 ? Math.round((totCovered * 1000) / totLines) / 10 : 0;
-        
-                  // Build summary markdown
-                  let md = `### Salesforce Delta Coverage (from Validate JSON)\n\n`;
-                  md += `- **Changed Apex units:** ${units.length}\n`;
-                  md += `- **Delta average coverage:** ${avgPct}% (min ${avgMin}%)\n`;
-                  md += `- **Per-file minimum:** ${perMin}% ${perMin>0 ? '(enforced)' : '(disabled)'}\n`;
-                  md += `- **Org:** \`${process.env.TARGET_ALIAS}\`\n\n`;
-        
-                  if (units.length === 0) {
-                    md += `No Apex classes/triggers changed in this PR. Delta coverage gate skipped.\n`;
-                    fs.writeFileSync('summary.md', md);
-                    // If validate itself failed, we still want to fail the job; signal pass for coverage only
-                    console.log(`coverage_pass=true`);
-                    process.exit(0);
-                  }
-        
-                  md += `#### Delta Units\n`;
-                  md += `| Class/Trigger | Covered | Total | % |\n`;
-                  md += `|---|---:|---:|---:|\n`;
-                  for (const r of rows) {
-                    md += `| ${r.name}${r.found ? '' : ' *(no data in validate)*'} | ${r.covered} | ${r.total} | ${r.pct}% |\n`;
-                  }
-                  md += `\n`;
-        
-                  if (missing.length) {
-                    md += `> ⚠️ These changed units had **no coverage in the validate JSON** (treated as 0%): ${missing.join(', ')}\n\n`;
-                  }
-        
-                  // Enforce coverage gates
-                  const avgFail = avgPct < avgMin;
-                  const perFails = perMin > 0 ? rows.filter(r => r.pct < perMin) : [];
-                  let fail = false;
-                  if (avgFail || perFails.length) {
-                    fail = true;
-                    if (avgFail) md += `**Result:** ❌ Delta average ${avgPct}% < ${avgMin}%\n`;
-                    if (perFails.length) {
-                      md += `**Result:** ❌ ${perFails.length} unit(s) below ${perMin}%: `;
-                      md += perFails.map(r => `${r.name} (${r.pct}%)`).join(', ') + `\n`;
-                    }
-                  } else {
-                    md += `**Result:** ✅ Delta coverage met thresholds.\n`;
-                  }
-        
-                  fs.writeFileSync('summary.md', md);
-                  // Emit pass/fail for later steps (GitHub output)
-                  if (fail) process.exit(2);
-                  process.exit(0);
-                  NODE
+                  pct=$(jq '.total.lines.pct' coverage-summary.json)
+                  pct_num=$(printf "%.2f" "$pct")
+                  if (( $(echo "$pct_num < 85" | bc -l) )); then
+                    echo "❌ Coverage below 85%: ${pct_num}%"
+                    exit 1
+                  else
+                    echo "✅ Coverage OK: ${pct_num}%"
+                  fi
+                  echo "coverage_pct=$pct_num" >> "$GITHUB_OUTPUT"
 
             - name: package xml on PR
               uses: peter-evans/create-or-update-comment@v4
