@@ -222,7 +222,7 @@ jobs:
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                  sf project deploy validate --manifest manifest/package.xml --test-level RunLocalTests --coverage-formatters json-summary --results-dir coveragetext  --verbose --wait 60 --json > validate.json
+                  sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests --coverage-formatters json-summary --results-dir coveragetext  --verbose --wait 60 --json > validate.json
                   sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests --wait 60 --json > > deploy.json
                   pwd
             - name: 'Deploy to environment with running specific tests'
@@ -231,7 +231,7 @@ jobs:
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                  sf project deploy validate --manifest manifest/package.xml --test-level RunSpecifiedTests --tests "$tests" --coverage-formatters json-summary --results-dir coveragetext --verbose --wait 60 --json > validate.json
+                  sf project deploy validate --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$tests" --coverage-formatters json-summary --results-dir coveragetext --verbose --wait 60 --json > validate.json
                   sf project deploy start --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$tests" --wait 60 --json > > deploy.json
                   pwd 
             - name: compute Test Coverage 
