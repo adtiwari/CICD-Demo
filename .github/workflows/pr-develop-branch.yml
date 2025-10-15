@@ -234,10 +234,12 @@ jobs:
                   sf project deploy validate --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$tests" --coverage-formatters json-summary --results-dir coveragetext --verbose --wait 60 --json
                   sf project deploy start --source-dir changed-sources/force-app --test-level RunSpecifiedTests --tests "$tests" --wait 60 --json 
                   pwd 
-            - name: compute Test Coverage 
+            - name: 'compute Test Coverage'
               id: coverage
               if: ${{ steps.testsuite.outputs.test-level == 'RunLocalTests' || steps.testsuite.outputs.test-level == 'RunSpecifiedTests'}}
               run: |
+                  
+                  echo "${{steps.testsuite.outputs.test-level}}" 
                   pct=$(jq '.total.lines.pct' coverage-summary.json)
                   pct_num=$(printf "%.2f" "$pct")
                   if (( $(echo "$pct_num < 85" | bc -l) )); then
