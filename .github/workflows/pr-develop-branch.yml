@@ -227,7 +227,7 @@ jobs:
                   pwd
             - name: 'Deploy to environment with running specific tests'
               id: deploy_specific_tests
-              if: ${{ steps.defaultsuite.outputs.test-level == 'RunSpecifiedTests'}}
+              if: ${{ steps.testsuite.outputs.test-level == 'RunSpecifiedTests'}}
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
@@ -236,7 +236,7 @@ jobs:
                   pwd 
             - name: compute Test Coverage 
               id: coverage
-              if: ${{ steps.testsuite.outputs.test-level == 'RunLocalTests' || steps.defaultsuite.outputs.test-level == 'RunSpecifiedTests'}}
+              if: ${{ steps.testsuite.outputs.test-level == 'RunLocalTests' || steps.testsuite.outputs.test-level == 'RunSpecifiedTests'}}
               run: |
                   pct=$(jq '.total.lines.pct' coverage-summary.json)
                   pct_num=$(printf "%.2f" "$pct")
