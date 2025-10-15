@@ -190,8 +190,8 @@ jobs:
                 body-file: changed-sources/scan-output.txt
             - name: Tests to Run
               id: testsuite
-              env: 
-                has_vr = ${{steps.vrulecheck.outputs.has_validationrule_changes}}
+              env:
+                has_vr : ${{steps.vrulecheck.outputs.has_validationrule_changes}}
               if: ${{steps.classcheck.outputs.has_class_changes||steps.triggercheck.outputs.has_triggers_changes == 'true'  }}
               run: |
                   cd changed-sources
