@@ -213,8 +213,8 @@ jobs:
               run: |
                   echo "${{ secrets.JWT_SECRET_KEY }}" > server.key
                   sf org login jwt --username ${{ secrets.DEPLOYMENT_USERNAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                  sf project deploy validate --source-dir changed-sources/force-app --test-level NoTestRun --wait 60 --json --verbose 
-                  sf project deploy start --source-dir changed-sources/force-app --test-level NoTestRun --wait 60 --json 
+                  sf project deploy validate --source-dir changed-sources/force-app --wait 60 --json --verbose 
+                  sf project deploy start --source-dir changed-sources/force-app --wait 60 --json 
                   pwd
             - name: 'Deploy to environment with running local tests'
               id: deploy_local_tests
